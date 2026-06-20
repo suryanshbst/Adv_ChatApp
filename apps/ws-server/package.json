@@ -1,5 +1,5 @@
 {
-  "name": "http-backend",
+  "name": "ws-server",
   "module": "index.ts",
   "type": "module",
   "private": true,
@@ -10,14 +10,11 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@repo/common": "*",
-    "@repo/db": "*",
-    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
-    "@types/jsonwebtoken": "^9.0.10",
-    "cors": "^2.8.6",
-    "dotenv": "^17.4.2",
+    "@types/ws": "^8.18.1",
     "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3"
+    "ws": "^8.21.0",
+    "@repo/db": "*",
+    "@repo/common": "*"
   }
 }
