@@ -76,7 +76,7 @@ export default function SignUp() {
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("userName", data.name);
-      localStorage.setItem("userId", data.userId);
+      localStorage.setItem("userId", data.userId); // ← This must match JWT payload id
 
       router.push("/dashboard");
     } catch (err) {

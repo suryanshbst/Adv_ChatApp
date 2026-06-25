@@ -68,12 +68,15 @@ router.post("/join", async (req, res) => {
 router.get("/all", async (req, res) => {
   try {
     const userId = req.body.user?.id;
+    console.log("Fetching rooms for user:", userId); // ← ADD THIS
 
     const rooms = await prisma.rooms.findMany({
       where: {
         admin: userId,
       },
     });
+
+    console.log("Found rooms:", rooms); // ← ADD THIS
 
     res.status(200).json({ rooms });
   } catch (error) {
@@ -85,7 +88,12 @@ router.get("/all", async (req, res) => {
 router.delete("/:roomId", async (req, res) => {
   try {
     const { roomId } = req.params;
-    const userId = req.body.user.id;
+    const userId = req.body.user?.id;
+
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
 
     const room = await prisma.rooms.findUnique({
       where: { id: roomId },
@@ -97,7 +105,7 @@ router.delete("/:roomId", async (req, res) => {
     }
 
     if (room.admin !== userId) {
-      res.status(403).json({ error: "Only admin can delete this room" });
+      res.status(403).json({ error: "Only the admin can delete this room" });
       return;
     }
 

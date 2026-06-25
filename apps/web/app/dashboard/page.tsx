@@ -13,6 +13,7 @@ import {
   Check,
   User,
   RefreshCcw,
+  Trash2, // ← ADD THIS
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -48,6 +49,9 @@ export default function Dashboard() {
   const fetchActiveRooms = async () => {
     try {
       const token = localStorage.getItem("token");
+      const userId = localStorage.getItem("userId");
+      console.log("Fetching rooms with userId:", userId); // ← ADD THIS
+
       const response = await fetch(`${burl}/api/room/all`, {
         headers: {
           Authorization: `${token}`,
@@ -56,13 +60,13 @@ export default function Dashboard() {
 
       if (response.ok) {
         const data = await response.json();
+        console.log("Rooms response:", data); // ← ADD THIS
         setActiveRooms(data.rooms || []);
       }
     } catch (error) {
       console.error("Failed to fetch active rooms:", error);
     }
   };
-
   const generateRoomCode = () => {
     setIsGeneratingCode(true);
     setCreateError("");
@@ -129,6 +133,29 @@ export default function Dashboard() {
     }
   };
 
+  const deleteRoom = async (roomId: string) => {
+    if (!confirm("Are you sure you want to delete this room?")) return;
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${burl}/api/room/${roomId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete room");
+      }
+
+      // Refresh the room list
+      fetchActiveRooms();
+    } catch (error) {
+      console.error("Delete room error:", error);
+      alert(error instanceof Error ? error.message : "Failed to delete room");
+    }
+  };
   const joinRoom = async () => {
     setJoinError("");
 
@@ -373,20 +400,37 @@ export default function Dashboard() {
               {activeRooms.map((room) => (
                 <motion.div
                   key={room.id}
-                  className="bg-neutral-800 rounded-xl p-4 border border-neutral-700 hover:border-neutral-600 transition-colors cursor-pointer"
+                  className="bg-neutral-800 rounded-xl p-4 border border-neutral-700 hover:border-neutral-600 transition-colors"
                   whileHover={{ scale: 1.02 }}
-                  onClick={() =>
-                    router.push(
-                      `/room/?roomId=${room.id}&roomName=${encodeURIComponent(room.slug || room.name)}`,
-                    )
-                  }
                 >
                   <div className="flex items-center justify-between">
-                    <div>
+                    <div
+                      className="flex-1 cursor-pointer"
+                      onClick={() =>
+                        router.push(
+                          `/room/?roomId=${room.id}&roomName=${encodeURIComponent(room.slug || room.name)}`,
+                        )
+                      }
+                    >
                       <h4 className="font-bold">{room.slug || room.name}</h4>
                       <p className="text-sm text-gray-400">Code: {room.id}</p>
                     </div>
-                    <ArrowRight size={18} className="text-gray-500" />
+                    <div className="flex items-center gap-2">
+                      <ArrowRight size={18} className="text-gray-500" />
+                      {/* Show delete button only for admin */}
+                      {room.admin === localStorage.getItem("userId") && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteRoom(room.id);
+                          }}
+                          className="p-2 bg-red-900/40 hover:bg-red-900/60 text-red-400 rounded-lg transition-colors"
+                          title="Delete room"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               ))}
