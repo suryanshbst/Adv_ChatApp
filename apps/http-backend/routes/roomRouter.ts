@@ -82,4 +82,34 @@ router.get("/all", async (req, res) => {
   }
 });
 
+router.delete("/:roomId", async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const userId = req.body.user.id;
+
+    const room = await prisma.rooms.findUnique({
+      where: { id: roomId },
+    });
+
+    if (!room) {
+      res.status(404).json({ error: "Room not found" });
+      return;
+    }
+
+    if (room.admin !== userId) {
+      res.status(403).json({ error: "Only admin can delete this room" });
+      return;
+    }
+
+    await prisma.rooms.delete({
+      where: { id: roomId },
+    });
+
+    res.status(200).json({ message: "Room deleted successfully" });
+  } catch (error) {
+    console.error("Delete room error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;

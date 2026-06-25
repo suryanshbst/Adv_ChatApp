@@ -22,7 +22,7 @@ export default function SignUp() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const burl = process.env.NEXT_PUBLIC_HTTP_BACKEND;
+  const burl = process.env.NEXT_PUBLIC_HTTP_BACKEND || "http://localhost:3002";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +61,11 @@ export default function SignUp() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          password,
+        }),
       });
 
       const data = await response.json();

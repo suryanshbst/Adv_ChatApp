@@ -127,7 +127,17 @@ function RoomContent() {
           setIsMessageSending(false);
           return;
         }
-
+        if (data.messages && data.messages.length > 0) {
+          setMessages(data.messages);
+        }
+        if (data.type === "room_joined") {
+          if (data.messages && data.messages.length > 0) {
+            setMessages(data.messages);
+          }
+          if (data.roomName) setRoomName(data.roomName);
+          if (data.users) setUsers(data.users);
+          return;
+        }
         if (data.message) {
           const newMessage: Message = {
             id: data.id || Math.random().toString(36).substring(2, 9),

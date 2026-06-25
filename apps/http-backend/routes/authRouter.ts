@@ -5,14 +5,19 @@ import { prisma } from "@repo/db/prisma";
 import { CreateUserSchema, SigninSchema } from "@repo/common/config";
 
 const router = Router();
-
 const JWT_SECRET = process.env.JWT_SECRET;
 
 router.post("/signup", async (req, res) => {
   try {
+    console.log("Signup request body:", req.body); // ← ADD THIS for debugging
+
     const parsedData = CreateUserSchema.safeParse(req.body);
     if (!parsedData.success) {
-      res.status(400).json({ error: "Invalid input data" });
+      console.error("Validation errors:", parsedData.error.format()); // ← ADD THIS
+      res.status(400).json({
+        error: "Invalid input data",
+        details: parsedData.error.format(), // ← ADD THIS to see what's wrong
+      });
       return;
     }
 
@@ -54,9 +59,15 @@ router.post("/signup", async (req, res) => {
 
 router.post("/signin", async (req, res) => {
   try {
+    console.log("Signin request body:", req.body); // ← ADD THIS
+
     const parsedData = SigninSchema.safeParse(req.body);
     if (!parsedData.success) {
-      res.status(400).json({ error: "Invalid input data" });
+      console.error("Validation errors:", parsedData.error.format()); // ← ADD THIS
+      res.status(400).json({
+        error: "Invalid input data",
+        details: parsedData.error.format(), // ← ADD THIS
+      });
       return;
     }
 

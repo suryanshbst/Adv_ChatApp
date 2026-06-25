@@ -32,11 +32,11 @@ model Rooms {
 }
 
 model Messages {
-  id        String   @unique @id @default(cuid())
+  id        String   @id @default(cuid())
   content   String
   createdAt DateTime @default(now())
   senderId  String
-  sender    User     @relation(fields: [senderId], references: [id])
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
   roomId    String
-  room      Rooms    @relation(fields: [roomId], references: [id])
+  room      Rooms    @relation(fields: [roomId], references: [id], onDelete: Cascade)
 }

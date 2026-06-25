@@ -1,5 +1,6 @@
 import { WebSocket } from "ws";
 import jwt from "jsonwebtoken";
+import { prisma } from "@repo/db/prisma"; // ← ADD THIS
 import { type User } from "../User/index";
 import { type Room } from "../Room/index";
 
@@ -9,7 +10,8 @@ export function handleConnection(ws: WebSocket, users: User[], rooms: Room[]) {
   let currentUser: User | null = null;
   let currentRoom: Room | null = null;
 
-  ws.on("message", (data: string) => {
+  ws.on("message", async (data: string) => {
+    // ← ADD async
     try {
       const message = JSON.parse(data.toString());
 
@@ -72,7 +74,7 @@ export function handleConnection(ws: WebSocket, users: User[], rooms: Room[]) {
 
           currentRoom = room;
 
-          // Notify others in the room
+          // Notify others
           room.users.forEach((user) => {
             if (
               user.id !== currentUser!.id &&
@@ -89,14 +91,34 @@ export function handleConnection(ws: WebSocket, users: User[], rooms: Room[]) {
             }
           });
 
-          // Send room info to joining user
+          // Fetch last 50 messages from DATABASE
+          let last50Messages = [];
+          try {
+            const dbMessages = await prisma.messages.findMany({
+              where: { roomId: roomId },
+              orderBy: { createdAt: "desc" },
+              take: 50,
+            });
+
+            last50Messages = dbMessages.reverse().map((m) => ({
+              id: m.id,
+              message: m.content,
+              from: m.senderId === currentUser!.id ? currentUser!.name : "User",
+              senderId: m.senderId,
+              time: new Date(m.createdAt).toLocaleTimeString(),
+            }));
+          } catch (err) {
+            console.error("Failed to fetch messages from DB:", err);
+            last50Messages = room.messages.slice(-50);
+          }
+
           ws.send(
             JSON.stringify({
               type: "room_joined",
               roomId: room.id,
               roomName: room.name || `Room-${room.id}`,
               users: room.users.map((u) => ({ id: u.id, name: u.name })),
-              messages: room.messages,
+              messages: last50Messages,
             }),
           );
           break;
@@ -120,9 +142,28 @@ export function handleConnection(ws: WebSocket, users: User[], rooms: Room[]) {
             time: new Date().toLocaleTimeString(),
           };
 
+          // Save to database
+          try {
+            await prisma.messages.create({
+              data: {
+                id: msgId,
+                content: msgContent.trim(),
+                senderId: currentUser.id,
+                roomId: currentRoom.id,
+              },
+            });
+          } catch (err) {
+            console.error("Failed to save message to DB:", err);
+          }
+
           currentRoom.messages.push(newMessage);
 
-          // Broadcast to all users in the room (including sender)
+          // Keep only last 50 in memory
+          if (currentRoom.messages.length > 50) {
+            currentRoom.messages = currentRoom.messages.slice(-50);
+          }
+
+          // Broadcast
           currentRoom.users.forEach((user) => {
             if (user.ws.readyState === WebSocket.OPEN) {
               user.ws.send(JSON.stringify(newMessage));
@@ -137,7 +178,6 @@ export function handleConnection(ws: WebSocket, users: User[], rooms: Room[]) {
               (u) => u.id !== currentUser!.id,
             );
 
-            // Notify others
             currentRoom.users.forEach((user) => {
               if (user.ws.readyState === WebSocket.OPEN) {
                 user.ws.send(
