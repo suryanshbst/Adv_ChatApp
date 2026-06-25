@@ -11,14 +11,13 @@ import {
   ArrowRight,
   AlertCircle,
   Check,
-  User,
   RefreshCcw,
-  Trash2, // ← ADD THIS
+  Trash2,
 } from "lucide-react";
 
 export default function Dashboard() {
-  const [userId, setUserId] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
+  const [userId, setUserId] = useState<string>("");
   const [roomCode, setRoomCode] = useState<string>("");
   const [roomName, setRoomName] = useState<string>("");
   const [generatedCode, setGeneratedCode] = useState<string>("");
@@ -29,7 +28,7 @@ export default function Dashboard() {
   const [isCodeCopied, setIsCodeCopied] = useState<boolean>(false);
   const [activeRooms, setActiveRooms] = useState<any[]>([]);
   const router = useRouter();
-  const burl = process.env.NEXT_PUBLIC_HTTP_BACKEND;
+  const burl = process.env.NEXT_PUBLIC_HTTP_BACKEND || "http://localhost:3002";
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -42,7 +41,7 @@ export default function Dashboard() {
     }
 
     if (storedUserName) setUserName(storedUserName);
-    if (storedUserId) setUserId(storedUserId); // ← ADD THIS
+    if (storedUserId) setUserId(storedUserId);
 
     fetchActiveRooms();
   }, [router]);
@@ -50,9 +49,6 @@ export default function Dashboard() {
   const fetchActiveRooms = async () => {
     try {
       const token = localStorage.getItem("token");
-      const userId = localStorage.getItem("userId");
-      console.log("Fetching rooms with userId:", userId); // ← ADD THIS
-
       const response = await fetch(`${burl}/api/room/all`, {
         headers: {
           Authorization: `${token}`,
@@ -61,13 +57,13 @@ export default function Dashboard() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log("Rooms response:", data); // ← ADD THIS
         setActiveRooms(data.rooms || []);
       }
     } catch (error) {
       console.error("Failed to fetch active rooms:", error);
     }
   };
+
   const generateRoomCode = () => {
     setIsGeneratingCode(true);
     setCreateError("");
@@ -134,36 +130,6 @@ export default function Dashboard() {
     }
   };
 
-  const deleteRoom = async (roomId: string) => {
-    if (
-      !confirm(
-        "Are you sure you want to delete this room? All messages will be lost.",
-      )
-    )
-      return;
-
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${burl}/api/room/${roomId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to delete room");
-      }
-
-      // Remove from local state immediately
-      setActiveRooms((prev) => prev.filter((room) => room.id !== roomId));
-    } catch (error) {
-      console.error("Delete room error:", error);
-      alert(error instanceof Error ? error.message : "Failed to delete room");
-    }
-  };
-
   const joinRoom = async () => {
     setJoinError("");
 
@@ -215,6 +181,35 @@ export default function Dashboard() {
     }
   };
 
+  const deleteRoom = async (roomId: string) => {
+    if (
+      !confirm(
+        "Are you sure you want to delete this room? All messages will be lost.",
+      )
+    )
+      return;
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${burl}/api/room/${roomId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete room");
+      }
+
+      setActiveRooms((prev) => prev.filter((room) => room.id !== roomId));
+    } catch (error) {
+      console.error("Delete room error:", error);
+      alert(error instanceof Error ? error.message : "Failed to delete room");
+    }
+  };
+
   const signOut = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("userId");
@@ -224,10 +219,34 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-neutral-900 text-white">
+      {/* Navbar with Logout */}
+      <nav className="bg-neutral-800 border-b border-neutral-700 px-4 py-3">
+        <div className="container mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-white font-bold text-lg">ChatApp</span>
+          </div>
+          <div className="flex items-center gap-4">
+            {userName && (
+              <span className="text-gray-300 text-sm hidden sm:inline">
+                Hello, {userName}
+              </span>
+            )}
+            <button
+              onClick={signOut}
+              className="flex items-center gap-1.5 text-sm text-gray-300 hover:text-white bg-neutral-700 hover:bg-neutral-600 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <LogOut size={16} />
+              <span className="hidden sm:inline">Sign Out</span>
+            </button>
+          </div>
+        </div>
+      </nav>
+
       <main className="container mx-auto px-4 py-8">
         <h2 className="text-3xl font-bold mb-8">Welcome to your Dashboard</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+          {/* Create Room Card */}
           <motion.div
             className="bg-neutral-800 rounded-xl overflow-hidden shadow-lg"
             initial={{ opacity: 0, y: 20 }}
@@ -330,6 +349,7 @@ export default function Dashboard() {
             </div>
           </motion.div>
 
+          {/* Join Room Card */}
           <motion.div
             className="bg-neutral-800 rounded-xl overflow-hidden shadow-lg"
             initial={{ opacity: 0, y: 20 }}
@@ -383,6 +403,7 @@ export default function Dashboard() {
           </motion.div>
         </div>
 
+        {/* Active Rooms Section */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold">Your Active Rooms</h3>
@@ -425,8 +446,8 @@ export default function Dashboard() {
                     </div>
                     <div className="flex items-center gap-2">
                       <ArrowRight size={18} className="text-gray-500" />
-                      {/* Show delete button only for admin */}
-                      {room.admin === localStorage.getItem("userId") && (
+                      {/* Show delete button ONLY for admin */}
+                      {room.admin === userId && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
