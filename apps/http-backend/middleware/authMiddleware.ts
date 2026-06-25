@@ -1,9 +1,7 @@
+import "dotenv/config";
 import jwt from "jsonwebtoken";
-import { type Request, type Response, type NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 import { prisma } from "@repo/db/prisma";
-
-const JWT_SECRET = process.env.JWT_SECRET;
-const secret = JWT_SECRET;
 
 export const authMiddleware = async (
   req: Request,
@@ -12,33 +10,53 @@ export const authMiddleware = async (
 ) => {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !secret) {
-    res.status(401).json({ error: "Invalid Token" });
+  if (!authHeader) {
+    res.status(401).json({ error: "No token provided" });
     return;
   }
 
-  // Strip "Bearer " prefix if present
-  const token = authHeader.startsWith("Bearer ")
-    ? authHeader.slice(7)
-    : authHeader;
+  const JWT_SECRET = process.env.JWT_SECRET;
+
+  if (!JWT_SECRET) {
+    res
+      .status(500)
+      .json({ error: "Server configuration error: JWT_SECRET missing" });
+    return;
+  }
+
+  const rawToken = authHeader.trim();
+  const token = rawToken.startsWith("Bearer ")
+    ? rawToken.slice(7).trim()
+    : rawToken;
 
   try {
-    const decoded = jwt.verify(token, secret);
+    const decoded = jwt.verify(token, JWT_SECRET);
+
     if (!decoded || typeof decoded === "string") {
-      res.status(401).json({ error: "Invalid Token" });
+      res.status(401).json({ error: "Invalid Token format" });
       return;
     }
 
+    const payload = decoded as jwt.JwtPayload;
+
     const userExists = await prisma.user.findFirst({
-      where: {
-        id: (decoded as jwt.JwtPayload).id,
-      },
+      where: { id: payload.id as string },
     });
 
-    req.body.user = decoded;
-    req.body.username = userExists?.name;
+    if (!userExists) {
+      res.status(401).json({ error: "User not found" });
+      return;
+    }
+
+    // FIX: Attach to req directly, NOT req.body (body is undefined for GET/DELETE)
+    (req as any).user = {
+      id: payload.id,
+      email: payload.email,
+    };
+
     next();
   } catch (error) {
+    console.error("[AuthMiddleware] JWT verify error:", error);
     res.status(401).json({ error: "Invalid Token" });
   }
 };
