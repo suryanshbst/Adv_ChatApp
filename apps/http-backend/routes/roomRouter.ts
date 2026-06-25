@@ -4,7 +4,7 @@ import { CreateRoomSchema } from "@repo/common/config";
 
 const router = Router();
 
-// CREATE ROOM — connects admin user to the room
+// POST /api/room/create — Create a new room and connect admin user
 router.post("/create", async (req, res) => {
   try {
     const parsedData = CreateRoomSchema.safeParse(req.body);
@@ -22,13 +22,14 @@ router.post("/create", async (req, res) => {
       return;
     }
 
+    // Create room AND connect admin user to the many-to-many relation
     const room = await prisma.rooms.create({
       data: {
         id: roomId,
         slug: name,
         admin: adminId,
         users: {
-          connect: { id: adminId }, // ← CONNECTS admin to _RoomsToUser table
+          connect: { id: adminId },
         },
       },
     });
@@ -43,7 +44,7 @@ router.post("/create", async (req, res) => {
   }
 });
 
-// JOIN ROOM — connects joining user to the room
+// POST /api/room/join — Connect an existing user to an existing room
 router.post("/join", async (req, res) => {
   try {
     const { roomId } = req.body;
@@ -68,12 +69,12 @@ router.post("/join", async (req, res) => {
       return;
     }
 
-    // Connect user to room (adds to _RoomsToUser join table)
+    // Connect user to room via implicit many-to-many join table _RoomsToUser
     await prisma.rooms.update({
       where: { id: roomId },
       data: {
         users: {
-          connect: { id: userId }, // ← CONNECTS user to _RoomsToUser table
+          connect: { id: userId },
         },
       },
     });
@@ -87,7 +88,7 @@ router.post("/join", async (req, res) => {
   }
 });
 
-// GET ALL ROOMS — returns rooms where user is connected (via many-to-many)
+// GET /api/room/all — Fetch all rooms where the authenticated user is connected
 router.get("/all", async (req, res) => {
   try {
     const userId = req.body.user?.id;
@@ -97,12 +98,21 @@ router.get("/all", async (req, res) => {
       return;
     }
 
-    // Fetch rooms where user is in the users[] relation
+    // Query: find all Rooms where the users[] relation contains this userId
     const rooms = await prisma.rooms.findMany({
       where: {
         users: {
           some: {
-            id: userId, // ← Finds rooms connected to this user
+            id: userId,
+          },
+        },
+      },
+      include: {
+        users: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
           },
         },
       },
@@ -115,7 +125,7 @@ router.get("/all", async (req, res) => {
   }
 });
 
-// DELETE ROOM — admin only, cascades to messages
+// DELETE /api/room/:roomId — Delete room (admin only), cascades messages
 router.delete("/:roomId", async (req, res) => {
   try {
     const { roomId } = req.params;
@@ -140,7 +150,8 @@ router.delete("/:roomId", async (req, res) => {
       return;
     }
 
-    // Prisma will cascade delete all messages due to onDelete: Cascade
+    // Prisma will cascade delete all related Messages and _RoomsToUser entries
+    // due to onDelete: Cascade in the schema
     await prisma.rooms.delete({
       where: { id: roomId },
     });

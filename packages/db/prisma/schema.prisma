@@ -13,19 +13,19 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id        String     @id @default(cuid())
+  email     String     @unique
   name      String?
   password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   messages  Messages[]
   rooms     Rooms[]
 }
 
 model Rooms {
-  id       String    @unique @id @default(cuid())
-  slug    String @unique
+  id       String     @id @unique @default(cuid())
+  slug     String     @unique
   admin    String
   messages Messages[]
   users    User[]

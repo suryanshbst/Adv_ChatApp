@@ -11,6 +11,7 @@ import {
   ArrowRight,
   AlertCircle,
   Check,
+  User,
   RefreshCcw,
   Trash2,
 } from "lucide-react";
@@ -203,6 +204,7 @@ export default function Dashboard() {
         throw new Error(errorData.error || "Failed to delete room");
       }
 
+      // Remove from local state immediately
       setActiveRooms((prev) => prev.filter((room) => room.id !== roomId));
     } catch (error) {
       console.error("Delete room error:", error);
@@ -219,7 +221,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-neutral-900 text-white">
-      {/* Navbar with Logout */}
+      {/* Navbar */}
       <nav className="bg-neutral-800 border-b border-neutral-700 px-4 py-3">
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -246,7 +248,6 @@ export default function Dashboard() {
         <h2 className="text-3xl font-bold mb-8">Welcome to your Dashboard</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-          {/* Create Room Card */}
           <motion.div
             className="bg-neutral-800 rounded-xl overflow-hidden shadow-lg"
             initial={{ opacity: 0, y: 20 }}
@@ -349,7 +350,6 @@ export default function Dashboard() {
             </div>
           </motion.div>
 
-          {/* Join Room Card */}
           <motion.div
             className="bg-neutral-800 rounded-xl overflow-hidden shadow-lg"
             initial={{ opacity: 0, y: 20 }}
@@ -403,7 +403,6 @@ export default function Dashboard() {
           </motion.div>
         </div>
 
-        {/* Active Rooms Section */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold">Your Active Rooms</h3>
@@ -446,7 +445,7 @@ export default function Dashboard() {
                     </div>
                     <div className="flex items-center gap-2">
                       <ArrowRight size={18} className="text-gray-500" />
-                      {/* Show delete button ONLY for admin */}
+                      {/* Show delete button only for admin */}
                       {room.admin === userId && (
                         <button
                           onClick={(e) => {
