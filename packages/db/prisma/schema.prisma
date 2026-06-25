@@ -32,11 +32,14 @@ model Rooms {
 }
 
 model Messages {
-  id        String   @id @default(cuid())
+  id        String   @id @unique @default(cuid())
   content   String
   createdAt DateTime @default(now())
   senderId  String
   sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
   roomId    String
   room      Rooms    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@index([senderId])
 }

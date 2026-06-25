@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 export default function Dashboard() {
+  const [userId, setUserId] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
   const [roomCode, setRoomCode] = useState<string>("");
   const [roomName, setRoomName] = useState<string>("");
@@ -33,15 +34,15 @@ export default function Dashboard() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     const storedUserName = localStorage.getItem("userName");
+    const storedUserId = localStorage.getItem("userId");
 
     if (!token) {
       router.push("/signin");
       return;
     }
 
-    if (storedUserName) {
-      setUserName(storedUserName);
-    }
+    if (storedUserName) setUserName(storedUserName);
+    if (storedUserId) setUserId(storedUserId); // ← ADD THIS
 
     fetchActiveRooms();
   }, [router]);
@@ -134,7 +135,13 @@ export default function Dashboard() {
   };
 
   const deleteRoom = async (roomId: string) => {
-    if (!confirm("Are you sure you want to delete this room?")) return;
+    if (
+      !confirm(
+        "Are you sure you want to delete this room? All messages will be lost.",
+      )
+    )
+      return;
+
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(`${burl}/api/room/${roomId}`, {
@@ -149,13 +156,14 @@ export default function Dashboard() {
         throw new Error(errorData.error || "Failed to delete room");
       }
 
-      // Refresh the room list
-      fetchActiveRooms();
+      // Remove from local state immediately
+      setActiveRooms((prev) => prev.filter((room) => room.id !== roomId));
     } catch (error) {
       console.error("Delete room error:", error);
       alert(error instanceof Error ? error.message : "Failed to delete room");
     }
   };
+
   const joinRoom = async () => {
     setJoinError("");
 
