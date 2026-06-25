@@ -18,7 +18,7 @@ import {
 export default function Dashboard() {
   const [userName, setUserName] = useState<string>("");
   const [roomCode, setRoomCode] = useState<string>("");
-  const [roomName, setRoomName] = useState<string>(""); // New state for room name
+  const [roomName, setRoomName] = useState<string>("");
   const [generatedCode, setGeneratedCode] = useState<string>("");
   const [joinError, setJoinError] = useState<string>("");
   const [createError, setCreateError] = useState<string>("");
@@ -71,7 +71,6 @@ export default function Dashboard() {
       const code = Math.floor(10000 + Math.random() * 90000).toString();
       setGeneratedCode(code);
       setIsCodeCopied(false);
-      // Set default room name based on generated code
       setRoomName(`Room-${code}`);
     } catch (error) {
       setCreateError("Failed to generate a room code. Please try again.");
@@ -101,7 +100,6 @@ export default function Dashboard() {
 
     try {
       const token = localStorage.getItem("token");
-      const userId = localStorage.getItem("userId");
 
       const response = await fetch(`${burl}/api/room/create`, {
         method: "POST",
@@ -117,10 +115,12 @@ export default function Dashboard() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create room");
+        throw new Error(errorData.error || "Failed to create room");
       }
 
-      router.push(`/room/?roomId=${generatedCode}&roomName=${roomName}`);
+      router.push(
+        `/room/?roomId=${generatedCode}&roomName=${encodeURIComponent(roomName)}`,
+      );
     } catch (error) {
       console.error("Room creation error:", error);
       setCreateError(
@@ -161,7 +161,15 @@ export default function Dashboard() {
         );
       }
 
-      router.push(`/room/?roomId=${roomCode}&roomName=${roomName}`);
+      const roomData = await verifyResponse.json();
+      const joinedRoomName =
+        roomData.roomDetails?.slug ||
+        roomData.roomDetails?.name ||
+        `Room-${roomCode}`;
+
+      router.push(
+        `/room/?roomId=${roomCode}&roomName=${encodeURIComponent(joinedRoomName)}`,
+      );
     } catch (error) {
       console.error("Room joining error:", error);
       setJoinError(
@@ -291,17 +299,17 @@ export default function Dashboard() {
             className="bg-neutral-800 rounded-xl overflow-hidden shadow-lg"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
           >
-            <div className="h-2 bg-gradient-to-r from-green-500 to-teal-500"></div>
+            <div className="h-2 bg-gradient-to-r from-emerald-500 to-teal-600"></div>
             <div className="p-6">
               <div className="flex items-center gap-3 mb-4">
-                <Users className="text-green-400" size={24} />
+                <Users className="text-emerald-400" size={24} />
                 <h3 className="text-xl font-bold">Join a Room</h3>
               </div>
 
               <p className="text-gray-400 mb-6">
-                Enter a 5-digit room code to join an existing room instantly.
+                Enter a 5-digit room code to join an existing conversation.
               </p>
 
               {joinError && (
@@ -318,82 +326,69 @@ export default function Dashboard() {
                 <input
                   type="text"
                   value={roomCode}
-                  onChange={(e) => {
-                    const value = e.target.value
-                      .replace(/[^0-9]/g, "")
-                      .substring(0, 5);
-                    setRoomCode(value);
-                    setJoinError("");
-                  }}
-                  className="bg-neutral-700 w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-all text-xl font-mono tracking-wider text-center"
-                  placeholder="Enter 5-digit code"
+                  onChange={(e) =>
+                    setRoomCode(e.target.value.replace(/\D/g, ""))
+                  }
+                  className="bg-neutral-700 w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-center text-2xl font-mono tracking-widest"
+                  placeholder="00000"
                   maxLength={5}
                 />
-
-                <div className="mt-6">
-                  <Button
-                    text={isJoining ? "Joining..." : "Join Room"}
-                    onClick={joinRoom}
-                    className={`w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 ${
-                      isJoining || roomCode.length !== 5
-                        ? "bg-neutral-700 cursor-not-allowed"
-                        : "bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 transition-colors"
-                    }`}
-                  >
-                    {!isJoining && <ArrowRight size={18} />}
-                  </Button>
-                </div>
               </div>
+
+              <Button
+                text={isJoining ? "Joining..." : "Join Room"}
+                onClick={joinRoom}
+                className={`w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 ${
+                  isJoining
+                    ? "bg-emerald-600/50 cursor-not-allowed"
+                    : "bg-emerald-600 hover:bg-emerald-700 transition-colors"
+                }`}
+              />
             </div>
           </motion.div>
         </div>
 
         <div className="mb-8">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold">Your Active Rooms</h3>
             <button
               onClick={fetchActiveRooms}
-              className="flex items-center gap-2 text-sm text-gray-300 hover:text-white"
+              className="p-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors"
+              title="Refresh rooms"
             >
-              <RefreshCcw size={14} />
-              <span>Refresh</span>
+              <RefreshCcw size={18} />
             </button>
           </div>
 
           {activeRooms.length === 0 ? (
-            <div className="bg-neutral-800 rounded-lg p-8 text-center text-gray-400">
-              <p>
-                No active rooms found. Create or join a room to get started!
+            <div className="bg-neutral-800 rounded-xl p-8 text-center">
+              <Users className="mx-auto text-gray-600 mb-3" size={32} />
+              <p className="text-gray-400">No active rooms yet.</p>
+              <p className="text-gray-500 text-sm mt-1">
+                Create or join a room to get started.
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {activeRooms.map((room) => (
-                <div
+                <motion.div
                   key={room.id}
-                  className="bg-neutral-800 rounded-lg p-4 hover:bg-neutral-750 transition-colors"
+                  className="bg-neutral-800 rounded-xl p-4 border border-neutral-700 hover:border-neutral-600 transition-colors cursor-pointer"
+                  whileHover={{ scale: 1.02 }}
+                  onClick={() =>
+                    router.push(
+                      `/room/?roomId=${room.id}&roomName=${encodeURIComponent(room.slug || room.name)}`,
+                    )
+                  }
                 >
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="font-bold">{room.slug}</h4>
-                    <div className="text-xs px-2 py-1 bg-neutral-700 rounded-full">
-                      {room.userCount} users
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold">{room.slug || room.name}</h4>
+                      <p className="text-sm text-gray-400">Code: {room.id}</p>
                     </div>
+                    <ArrowRight size={18} className="text-gray-500" />
                   </div>
-                  <p className="text-gray-400 text-sm mb-3 truncate">
-                    {room.description || `Room ID: ${room.id}`}
-                  </p>
-                  <button
-                    onClick={() =>
-                      router.push(
-                        `/room/?roomId=${room.id}&roomName=${room.slug}`,
-                      )
-                    }
-                    className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1"
-                  >
-                    <span>Enter Room</span>
-                    <ArrowRight size={14} />
-                  </button>
-                </div>
+                </motion.div>
               ))}
             </div>
           )}

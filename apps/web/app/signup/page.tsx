@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   EyeIcon,
@@ -22,6 +23,7 @@ export default function SignUp() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const burl = process.env.NEXT_PUBLIC_HTTP_BACKEND;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -65,11 +67,11 @@ export default function SignUp() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Sign up failed");
+        throw new Error(data.error || "Sign up failed");
       }
 
       localStorage.setItem("token", data.token);
-      localStorage.setItem("user", data.name);
+      localStorage.setItem("userName", data.name);
       localStorage.setItem("userId", data.userId);
 
       router.push("/dashboard");
@@ -86,7 +88,7 @@ export default function SignUp() {
   };
 
   return (
-    <div className="flex flex-1 mt-10 items-center justify-center  bg-neutral-900 px-4 overflow-hidden">
+    <div className="flex flex-1 mt-10 items-center justify-center bg-neutral-900 px-4 overflow-hidden">
       <motion.div
         className="w-full max-w-md bg-neutral-800 rounded-xl overflow-hidden shadow-2xl"
         initial={{ opacity: 0, y: 20 }}
@@ -290,15 +292,14 @@ export default function SignUp() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.7 }}
-              className="pt-2"
             >
               <Button
-                text={loading ? "Creating account..." : "Create Account"}
+                text={loading ? "Creating Account..." : "Sign Up"}
                 onClick={handleSubmit}
                 className={`w-full py-3 rounded-lg font-medium transition-all ${
                   loading
                     ? "bg-purple-700/50 cursor-not-allowed"
-                    : "bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white"
+                    : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
                 }`}
               />
             </motion.div>
@@ -311,77 +312,13 @@ export default function SignUp() {
             >
               <p className="text-gray-400">
                 Already have an account?{" "}
-                <a
+                <Link
                   href="/signin"
                   className="text-purple-400 hover:text-purple-300 font-medium"
                 >
                   Sign in
-                </a>
+                </Link>
               </p>
-            </motion.div>
-
-            <motion.div
-              className="mt-8 pt-6 border-t border-neutral-700"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.9 }}
-            >
-              <p className="text-center text-sm text-gray-400 mb-4">
-                Or sign up with
-              </p>
-              <div className="flex justify-center space-x-4">
-                <button
-                  type="button"
-                  className="flex items-center justify-center bg-neutral-700 hover:bg-neutral-600 p-2 rounded-lg w-12 h-12 transition-all"
-                >
-                  <svg
-                    className="h-6 w-6"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                      fill="#4285F4"
-                    />
-                    <path
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      fill="#34A853"
-                    />
-                    <path
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                      fill="#FBBC05"
-                    />
-                    <path
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                      fill="#EA4335"
-                    />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  className="flex items-center justify-center bg-neutral-700 hover:bg-neutral-600 p-2 rounded-lg w-12 h-12 transition-all"
-                >
-                  <svg
-                    className="h-6 w-6"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  className="flex items-center justify-center bg-neutral-700 hover:bg-neutral-600 p-2 rounded-lg w-12 h-12 transition-all"
-                >
-                  <svg
-                    className="h-6 w-6"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                  </svg>
-                </button>
-              </div>
             </motion.div>
           </form>
         </div>

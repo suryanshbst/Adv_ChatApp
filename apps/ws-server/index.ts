@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { WebSocketServer, type WebSocket } from "ws";
 import { type User } from "./User/index";
 import { type Room } from "./Room/index";
@@ -13,4 +14,4 @@ wss.on("connection", (ws: WebSocket) => {
   handleConnection(ws, users, rooms);
 });
 
-console.log(`Server started on port ${port}`);
+console.log(`WebSocket Server started on port ${port}`);

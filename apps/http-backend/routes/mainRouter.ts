@@ -1,9 +1,11 @@
-import { authRouter } from "./authRouter";
-import { roomRouter } from "./roomRouter";
-import express from "express";
 import { Router } from "express";
+import { authMiddleware } from "../middleware/authMiddleware";
+import authRouter from "./authRouter";
+import roomRouter from "./roomRouter";
 
-export const mainRouter: express.Router = express.Router();
+const router = Router();
 
-mainRouter.use("/auth", authRouter);
-mainRouter.use("/room", roomRouter);
+router.use("/auth", authRouter);
+router.use("/room", authMiddleware, roomRouter);
+
+export { router as mainRouter };

@@ -1,34 +1,44 @@
 import jwt from "jsonwebtoken";
-const JWT_SECRET = process.env.JWT_SECRET;
-const secret = JWT_SECRET;
 import { type Request, type Response, type NextFunction } from "express";
 import { prisma } from "@repo/db/prisma";
+
+const JWT_SECRET = process.env.JWT_SECRET;
+const secret = JWT_SECRET;
 
 export const authMiddleware = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
-  const token = req.headers.authorization;
-  if (token && secret) {
-    try {
-      const user = jwt.verify(token, secret);
-      if (!user || typeof user === "string") {
-        res.status(401).json({ error: "Invalid Token" });
-        return;
-      }
-      const userExists = await prisma.user.findFirst({
-        where: {
-          id: (user as jwt.JwtPayload).id,
-        },
-      });
-      req.body.user = user;
-      req.body.username = userExists?.name;
-      next();
-    } catch (error) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !secret) {
+    res.status(401).json({ error: "Invalid Token" });
+    return;
+  }
+
+  // Strip "Bearer " prefix if present
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : authHeader;
+
+  try {
+    const decoded = jwt.verify(token, secret);
+    if (!decoded || typeof decoded === "string") {
       res.status(401).json({ error: "Invalid Token" });
+      return;
     }
-  } else {
+
+    const userExists = await prisma.user.findFirst({
+      where: {
+        id: (decoded as jwt.JwtPayload).id,
+      },
+    });
+
+    req.body.user = decoded;
+    req.body.username = userExists?.name;
+    next();
+  } catch (error) {
     res.status(401).json({ error: "Invalid Token" });
   }
 };

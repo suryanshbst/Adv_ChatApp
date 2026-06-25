@@ -9,7 +9,7 @@ export function Card({
   className?: string;
   title: string;
   children: React.ReactNode;
-  href: string;
+  href?: string;
 }): JSX.Element {
   return (
     <a
@@ -18,10 +18,10 @@ export function Card({
       rel="noopener noreferrer"
       target="_blank"
     >
-      <h2>
-        {title} <span>-&gt;</span>
-      </h2>
-      <p>{children}</p>
+      <div className="flex flex-col justify-between p-6 rounded-xl border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 transition-colors">
+        <h3 className="text-white font-semibold text-lg mb-2">{title}</h3>
+        <div className="text-gray-400">{children}</div>
+      </div>
     </a>
   );
 }

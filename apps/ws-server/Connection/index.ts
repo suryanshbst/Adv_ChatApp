@@ -1,195 +1,195 @@
 import { WebSocket } from "ws";
-import { type User, createUser, joinRoom, leaveRoom } from "../User/index";
-import {
-  type Room,
-  createRoom,
-  addUserToRoom,
-  removeUserFromRoom,
-  broadcastMessage,
-} from "../Room/index";
-import { prisma } from "@repo/db/prisma";
-import jwt, { type JwtPayload } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
+import { type User } from "../User/index";
+import { type Room } from "../Room/index";
 
-const secret = process.env.JWT_SECRET as string;
+const JWT_SECRET = process.env.JWT_SECRET;
 
-// Main export: Initiates connection logic by attaching listeners using state tracking references
-export function handleConnection(
-  ws: WebSocket,
-  users: User[],
-  rooms: Room[],
-): void {
-  ws.on("message", async (message: string) => {
+export function handleConnection(ws: WebSocket, users: User[], rooms: Room[]) {
+  let currentUser: User | null = null;
+  let currentRoom: Room | null = null;
+
+  ws.on("message", (data: string) => {
     try {
-      const { command, roomId, msg, roomName, userName, token } =
-        JSON.parse(message);
+      const message = JSON.parse(data.toString());
 
-      // Verify JWT Token securely
-      let userId: string;
-      try {
-        const decoded = jwt.verify(token, secret) as JwtPayload;
-        if (!decoded || !decoded.id) {
-          ws.send(JSON.stringify({ error: "Invalid token structure" }));
-          return;
+      switch (message.command) {
+        case "connect": {
+          const token = message.token;
+          if (!token || !JWT_SECRET) {
+            ws.send(JSON.stringify({ error: "Invalid token" }));
+            return;
+          }
+
+          try {
+            const decoded = jwt.verify(token, JWT_SECRET) as {
+              id: string;
+              email: string;
+            };
+
+            currentUser = {
+              id: decoded.id,
+              name: message.userName || decoded.email,
+              ws,
+            };
+
+            users.push(currentUser);
+
+            ws.send(
+              JSON.stringify({
+                type: "connected",
+                userId: currentUser.id,
+                message: "Connected successfully",
+              }),
+            );
+          } catch (err) {
+            ws.send(JSON.stringify({ error: "Invalid token" }));
+          }
+          break;
         }
-        userId = decoded.id;
-      } catch (err) {
-        ws.send(
-          JSON.stringify({ error: "Authentication failed", details: err }),
-        );
-        return;
-      }
 
-      // Command Router
-      switch (command) {
-        case "connect":
-          handleUserConnection(userId, userName, ws, users);
+        case "joinRoom": {
+          if (!currentUser) {
+            ws.send(JSON.stringify({ error: "Not connected" }));
+            return;
+          }
+
+          const roomId = message.roomId;
+          let room = rooms.find((r) => r.id === roomId);
+
+          if (!room) {
+            room = {
+              id: roomId,
+              users: [],
+              messages: [],
+            };
+            rooms.push(room);
+          }
+
+          if (!room.users.find((u) => u.id === currentUser!.id)) {
+            room.users.push(currentUser);
+          }
+
+          currentRoom = room;
+
+          // Notify others in the room
+          room.users.forEach((user) => {
+            if (
+              user.id !== currentUser!.id &&
+              user.ws.readyState === WebSocket.OPEN
+            ) {
+              user.ws.send(
+                JSON.stringify({
+                  type: "user_joined",
+                  from: "System",
+                  message: `${currentUser!.name} joined the room`,
+                  time: new Date().toLocaleTimeString(),
+                }),
+              );
+            }
+          });
+
+          // Send room info to joining user
+          ws.send(
+            JSON.stringify({
+              type: "room_joined",
+              roomId: room.id,
+              roomName: room.name || `Room-${room.id}`,
+              users: room.users.map((u) => ({ id: u.id, name: u.name })),
+              messages: room.messages,
+            }),
+          );
           break;
-        case "joinRoom":
-          handleJoinRoom(userId, roomId, ws, users, rooms);
+        }
+
+        case "message": {
+          if (!currentUser || !currentRoom) {
+            ws.send(JSON.stringify({ error: "Not in a room" }));
+            return;
+          }
+
+          const msgContent = message.msg || message.message;
+          if (!msgContent || !msgContent.trim()) return;
+
+          const msgId = Math.random().toString(36).substring(2, 9);
+          const newMessage = {
+            id: msgId,
+            message: msgContent.trim(),
+            from: currentUser.name,
+            senderId: currentUser.id,
+            time: new Date().toLocaleTimeString(),
+          };
+
+          currentRoom.messages.push(newMessage);
+
+          // Broadcast to all users in the room (including sender)
+          currentRoom.users.forEach((user) => {
+            if (user.ws.readyState === WebSocket.OPEN) {
+              user.ws.send(JSON.stringify(newMessage));
+            }
+          });
           break;
-        case "leaveRoom":
-          handleLeaveRoom(userId, roomId, ws, users, rooms);
+        }
+
+        case "leaveRoom": {
+          if (currentRoom && currentUser) {
+            currentRoom.users = currentRoom.users.filter(
+              (u) => u.id !== currentUser!.id,
+            );
+
+            // Notify others
+            currentRoom.users.forEach((user) => {
+              if (user.ws.readyState === WebSocket.OPEN) {
+                user.ws.send(
+                  JSON.stringify({
+                    type: "user_left",
+                    from: "System",
+                    message: `${currentUser!.name} left the room`,
+                    time: new Date().toLocaleTimeString(),
+                  }),
+                );
+              }
+            });
+          }
           break;
-        case "message":
-          await handleMessage(userId, roomId, msg, users, rooms);
-          break;
+        }
+
         default:
-          ws.send(JSON.stringify({ error: "Invalid command" }));
+          ws.send(JSON.stringify({ error: "Unknown command" }));
       }
-    } catch (parseError) {
-      ws.send(JSON.stringify({ error: "Malformed JSON message string" }));
+    } catch (err) {
+      console.error("WS message error:", err);
+      ws.send(JSON.stringify({ error: "Invalid message format" }));
     }
   });
-}
 
-// --- Internal Helper Utilities ---
+  ws.on("close", () => {
+    if (currentRoom && currentUser) {
+      currentRoom.users = currentRoom.users.filter(
+        (u) => u.id !== currentUser!.id,
+      );
 
-function handleUserConnection(
-  userId: string,
-  userName: string,
-  ws: WebSocket,
-  users: User[],
-): void {
-  const existingUser = users.find((user) => user.id === userId);
+      currentRoom.users.forEach((user) => {
+        if (user.ws.readyState === WebSocket.OPEN) {
+          user.ws.send(
+            JSON.stringify({
+              type: "user_left",
+              from: "System",
+              message: `${currentUser!.name} left the room`,
+              time: new Date().toLocaleTimeString(),
+            }),
+          );
+        }
+      });
+    }
 
-  if (existingUser) {
-    existingUser.ws = ws;
-    ws.send(JSON.stringify({ message: `Welcome back, ${userName}!` }));
-    console.log(`User ${userName} (${userId}) reconnected`);
-  } else {
-    const newUser = createUser(userId, userName, ws);
-    users.push(newUser);
-    console.log(
-      `User ${userName} (${userId}) connected. Total online: ${users.length}`,
-    );
-    ws.send(
-      JSON.stringify({ message: `User ${userName} connected successfully` }),
-    );
-  }
-}
+    if (currentUser) {
+      const idx = users.findIndex((u) => u.id === currentUser!.id);
+      if (idx !== -1) users.splice(idx, 1);
+    }
+  });
 
-function handleJoinRoom(
-  userId: string,
-  roomId: string,
-  ws: WebSocket,
-  users: User[],
-  rooms: Room[],
-): void {
-  const user = users.find((u) => u.id === userId);
-  if (!user) {
-    ws.send(JSON.stringify({ error: "User not found. Please connect first." }));
-    return;
-  }
-
-  let room = rooms.find((r) => r.id === roomId);
-
-  if (!room) {
-    console.log(`Creating new room: ${roomId}`);
-    room = createRoom(roomId, `Room-${roomId}`, []);
-    rooms.push(room);
-
-    joinRoom(user, roomId);
-    addUserToRoom(room, user);
-    ws.send(JSON.stringify({ message: `Created and joined room ${roomId}` }));
-  } else {
-    joinRoom(user, roomId);
-    addUserToRoom(room, user);
-    ws.send(
-      JSON.stringify({ message: `User ${user.name} joined room ${room.name}` }),
-    );
-    broadcastMessage(room, `User ${user.name} joined room`, userId);
-  }
-}
-
-function handleLeaveRoom(
-  userId: string,
-  roomId: string,
-  ws: WebSocket,
-  users: User[],
-  rooms: Room[],
-): void {
-  const user = users.find((u) => u.id === userId);
-  const room = rooms.find((r) => r.id === roomId);
-
-  if (user && room) {
-    leaveRoom(user, roomId);
-    removeUserFromRoom(room, userId);
-    ws.send(
-      JSON.stringify({ message: `User ${user.name} left room ${room.name}` }),
-    );
-    broadcastMessage(room, `User ${user.name} left room`, userId);
-  } else {
-    ws.send(
-      JSON.stringify({ error: "Cannot leave room: user or room not found" }),
-    );
-  }
-}
-
-async function handleMessage(
-  userId: string,
-  roomId: string,
-  msg: string,
-  users: User[],
-  rooms: Room[],
-): Promise<void> {
-  const user = users.find((u) => u.id === userId);
-  const room = rooms.find((r) => r.id === roomId);
-
-  if (!user) return;
-
-  if (!room) {
-    user.ws.send(JSON.stringify({ error: `Room ${roomId} not found` }));
-    return;
-  }
-
-  try {
-    const savedMessage = await prisma.messages.create({
-      data: {
-        roomId: roomId,
-        content: msg,
-        senderId: userId,
-      },
-    });
-
-    // Broadcast message to all OTHER users in the room
-    broadcastMessage(room, msg, userId);
-
-    // Send confirmation to sender
-    user.ws.send(
-      JSON.stringify({
-        type: "message_sent",
-        messageId: savedMessage.id,
-        status: "delivered",
-        time: new Date().toISOString(),
-      }),
-    );
-  } catch (error) {
-    console.error("Error saving message:", error);
-    user.ws.send(
-      JSON.stringify({
-        type: "error",
-        message: "Error saving message to database",
-      }),
-    );
-  }
+  ws.on("error", (err) => {
+    console.error("WebSocket error:", err);
+  });
 }
