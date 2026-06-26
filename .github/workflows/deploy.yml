@@ -1,0 +1,46 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            cd ~/Adv_ChatApp
+
+            echo "Pulling latest code..."
+            git pull origin main
+
+            echo "Generating .env file..."
+            cat > .env << 'EOF'
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            NEXT_PUBLIC_HTTP_BACKEND=${{ secrets.NEXT_PUBLIC_HTTP_BACKEND }}
+            NEXT_PUBLIC_WS_BACKEND=${{ secrets.NEXT_PUBLIC_WS_BACKEND }}
+            EOF
+
+            echo "Stopping existing containers..."
+            docker-compose down
+
+            echo "Building and starting new containers..."
+            docker-compose up --build -d
+
+            echo "Cleaning up old images..."
+            docker image prune -f
+
+            echo "Deployment complete!"
+            docker-compose ps

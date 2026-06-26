@@ -1,0 +1,20 @@
+FROM oven/bun
+
+WORKDIR /app
+
+COPY ./package.json ./package.json
+COPY ./bun.lock ./bun.lock
+COPY ./packages/db/package.json ./packages/db/package.json
+COPY ./packages/common/package.json ./packages/common/package.json
+COPY ./apps/ws-server/package.json ./apps/ws-server/package.json
+
+COPY ./packages ./packages
+COPY ./apps/ws-server ./apps/ws-server
+
+RUN bun install
+
+EXPOSE 8080
+
+RUN cd packages/db && bunx prisma generate
+
+CMD ["bun", "run", "--cwd", "apps/ws-server", "index.ts"]
