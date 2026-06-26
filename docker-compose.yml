@@ -9,6 +9,7 @@ services:
       - PORT=3002
     ports:
       - "3002:3002"
+    restart: always
 
   ws-server:
     build:
@@ -20,6 +21,7 @@ services:
       - PORT=8080
     ports:
       - "8080:8080"
+    restart: always
 
   web:
     build:
@@ -28,11 +30,18 @@ services:
       args:
         NEXT_PUBLIC_HTTP_BACKEND: ${NEXT_PUBLIC_HTTP_BACKEND}
         NEXT_PUBLIC_WS_BACKEND: ${NEXT_PUBLIC_WS_BACKEND}
+    # ADD THESE ENVIRONMENT LINES BELOW:
+    environment:
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - NEXT_PUBLIC_HTTP_BACKEND=${NEXT_PUBLIC_HTTP_BACKEND}
+      - NEXT_PUBLIC_WS_BACKEND=${NEXT_PUBLIC_WS_BACKEND}
     ports:
       - "3000:3000"
     depends_on:
       - http-backend
       - ws-server
+    restart: always
 
   nginx:
     image: nginx:alpine
@@ -45,3 +54,4 @@ services:
       - web
       - http-backend
       - ws-server
+    restart: always
